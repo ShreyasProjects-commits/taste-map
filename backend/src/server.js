@@ -13,7 +13,7 @@ app.use(express.json());   // parse incoming JSON bodies
 // Routes — what to do when a request hits a URL
 app.get('/api/health', (req, res) => {
   res.json({
-    status: 'fine',
+    status: 'ok',
     service: 'taste-map-backend',
     timestamp: new Date().toISOString()
   });
