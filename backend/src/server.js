@@ -2,6 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const searchRoutes = require('./routes/search.js');
 
 // Creates the Express app
 const app = express();
@@ -19,21 +20,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.get('/api/test-foursquare', async (req, res) => {
-  try {
-    const { searchRestaurants } = require('./services/foursquare.js');
-    const results = await searchRestaurants({
-      query: 'ramen',
-      location: '-33.87,151.21'
-    });
-    res.json({ count: results.length, results });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+app.use('/api/search', searchRoutes);
 
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Taste Map backend running on http://localhost:${PORT}/api/test-foursquare`);
+  console.log(`Taste Map backend running on http://localhost:${PORT}/api/health`);
 });
