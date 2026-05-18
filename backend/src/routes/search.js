@@ -17,6 +17,15 @@ router.get('/', async (req, res) => {
       });
     }
 
+    // Validate location format (must be lat,lng like -33.87,151.21)
+    const locationRegex = /^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/;
+    if (!locationRegex.test(location)) {
+      return res.status(400).json({
+        error: 'Invalid location format',
+        expected: 'lat,lng — for example: -33.87,151.21'
+      });
+    }
+
     // Call the Foursquare service
     const results = await searchRestaurants({
       query: q,
