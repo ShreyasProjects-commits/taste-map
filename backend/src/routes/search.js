@@ -6,6 +6,7 @@ const router = express.Router();
 const { searchRestaurants: searchFoursquare } = require('../services/foursquare.js');
 const { searchRestaurants: searchOSM } = require('../services/osm.js');
 const { mergeResults } = require('../services/merge.js');
+const { supabase } = require('../services/supabase.js');
 
 router.get('/', async (req, res) => {
   try {
@@ -47,6 +48,7 @@ router.get('/', async (req, res) => {
     const osmResults = osmResult.status === 'fulfilled' ? osmResult.value : [];
 
     const results = mergeResults(foursquareResults, osmResults);
+    await saveSearchToDatabase(q, location, results);
 
     res.json({
       query: q,
@@ -62,5 +64,41 @@ router.get('/', async (req, res) => {
     });
   }
 });
+
+async function saveSearchToDatabase(query, location, results) {
+  try {
+    // Save the search
+    const { data: search, error: searchError } = await supabase
+      .from('searches')
+      .insert({ query, location })
+      .select()
+      .single();
+
+    if (searchError) throw searchError;
+
+    // Save the results
+    const rows = results.map((r) => ({
+      search_id: search.id,
+      name: r.name,
+      address: r.address,
+      lat: r.lat,
+      lng: r.lng,
+      rating: r.rating,
+      price: r.price,
+      source: r.source,
+      external_id: r.externalId
+    }));
+
+    const { error: resultsError } = await supabase
+      .from('results')
+      .insert(rows);
+
+    if (resultsError) throw resultsError;
+
+  } catch (err) {
+    // Log but don't crash the request
+    console.error('Failed to save search to database:', err.message);
+  }
+}
 
 module.exports = router;
