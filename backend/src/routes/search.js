@@ -33,6 +33,8 @@ router.get('/', async (req, res) => {
       radius: radius ? parseInt(radius) : 1000
     };
 
+    const user = await getUserFromToken(req);
+
     // Call both sources in parallel
     const [fsResult, osmResult] = await Promise.allSettled([
       searchFoursquare(options),
@@ -48,7 +50,7 @@ router.get('/', async (req, res) => {
     const osmResults = osmResult.status === 'fulfilled' ? osmResult.value : [];
 
     const results = mergeResults(foursquareResults, osmResults);
-    await saveSearchToDatabase(q, location, results);
+    await saveSearchToDatabase(q, location, results, user?.id || null);
 
     res.json({
       query: q,
@@ -65,12 +67,27 @@ router.get('/', async (req, res) => {
   }
 });
 
-async function saveSearchToDatabase(query, location, results) {
+async function getUserFromToken(req) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return null;
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data, error } = await supabase.auth.getUser(token);
+
+    if (error || !data.user) return null;
+    return data.user;
+  } catch {
+    return null;
+  }
+}
+
+async function saveSearchToDatabase(q, location, results, userId = null) {
   try {
     // Save the search
     const { data: search, error: searchError } = await supabase
       .from('searches')
-      .insert({ query, location })
+      .insert({ query: q, location, user_id: userId })
       .select()
       .single();
 

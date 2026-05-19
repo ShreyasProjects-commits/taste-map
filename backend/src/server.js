@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const searchRoutes = require('./routes/search.js');
+const authRoutes = require('./routes/auth.js');
 
 // Creates the Express app
 const app = express();
@@ -21,6 +22,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/search', searchRoutes);
+app.use('/api/auth', authRoutes);
 
 // Start the server
 const PORT = process.env.PORT || 3000;
