@@ -3,13 +3,14 @@
 
 const express = require('express');
 const router = express.Router();
-const { searchRestaurants } = require('../services/foursquare.js');
+const { searchRestaurants: searchFoursquare } = require('../services/foursquare.js');
+const { searchRestaurants: searchOSM } = require('../services/osm.js');
+const { mergeResults } = require('../services/merge.js');
 
 router.get('/', async (req, res) => {
   try {
     const { q, location, radius } = req.query;
 
-    // Validation: require q and location
     if (!q || !location) {
       return res.status(400).json({
         error: 'Missing required query parameters',
@@ -17,7 +18,6 @@ router.get('/', async (req, res) => {
       });
     }
 
-    // Validate location format (must be lat,lng like -33.87,151.21)
     const locationRegex = /^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/;
     if (!locationRegex.test(location)) {
       return res.status(400).json({
@@ -26,20 +26,35 @@ router.get('/', async (req, res) => {
       });
     }
 
-    // Call the Foursquare service
-    const results = await searchRestaurants({
+    const options = {
       query: q,
       location: location,
       radius: radius ? parseInt(radius) : 1000
-    });
+    };
 
-    // Return structured response
+    // Call both sources in parallel
+    const [fsResult, osmResult] = await Promise.allSettled([
+      searchFoursquare(options),
+      searchOSM(options)
+    ]);
+
+    console.log('Foursquare status:', fsResult.status);
+    console.log('Foursquare error:', fsResult.reason?.message);
+    console.log('OSM status:', osmResult.status);
+    console.log('OSM error:', osmResult.reason?.message);
+
+    const foursquareResults = fsResult.status === 'fulfilled' ? fsResult.value : [];
+    const osmResults = osmResult.status === 'fulfilled' ? osmResult.value : [];
+
+    const results = mergeResults(foursquareResults, osmResults);
+
     res.json({
       query: q,
       location: location,
       count: results.length,
       results: results
     });
+
   } catch (err) {
     res.status(500).json({
       error: 'Search failed',
